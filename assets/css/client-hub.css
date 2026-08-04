@@ -1,0 +1,49 @@
+.client-hub{
+
+    max-width:500px;
+
+    margin:50px auto;
+
+    padding:30px;
+
+    border:1px solid #ddd;
+
+    border-radius:10px;
+
+    background:#fff;
+
+}
+
+.client-hub-group{
+
+    margin-bottom:20px;
+
+}
+
+.client-hub-group label{
+
+    display:block;
+
+    margin-bottom:5px;
+
+    font-weight:bold;
+
+}
+
+.client-hub-group input{
+
+    width:100%;
+
+    padding:10px;
+
+}
+
+.client-hub button{
+
+    width:100%;
+
+    padding:12px;
+
+    cursor:pointer;
+
+}
