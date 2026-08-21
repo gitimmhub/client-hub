@@ -35,7 +35,9 @@ jQuery(function ($) {
                     return;
                 }
 
-                window.location.reload();
+                //window.location.reload();
+                window.location.href =
+                window.location.pathname + '?client_hub=' + Date.now();
             },
 
             error: function (xhr) {
