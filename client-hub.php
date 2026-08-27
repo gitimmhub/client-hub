@@ -3,7 +3,7 @@
  * Plugin Name: Client Hub
  * Plugin URI: https://github.com/gitimmhub/client-hub
  * Description: Portal do cliente integrado ao CSP para acesso a orçamentos e estudos.
- * Version: 1.4
+ * Version: 1.4.1
  * Author: Matheus Barbiéri
  * Author URI: https://github.com/gitimmhub
  * Text Domain: client-hub
@@ -25,7 +25,7 @@ $updateChecker = PucFactory::buildUpdateChecker(
 
 $updateChecker->setBranch('main');
 
-define('CLIENT_HUB_VERSION', '1.4');
+define('CLIENT_HUB_VERSION', '1.4.1');
 define('CLIENT_HUB_FILE', __FILE__);
 define('CLIENT_HUB_PATH', plugin_dir_path(__FILE__));
 define('CLIENT_HUB_URL', plugin_dir_url(__FILE__));
@@ -233,7 +233,7 @@ function client_hub_login(): void
          *
          * Em produção, altere para true.
          */
-        'sslverify' => false,
+        'sslverify' => true,
 
         'body' => [
             'login' => $login,
