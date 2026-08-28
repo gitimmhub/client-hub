@@ -3,7 +3,7 @@
  * Plugin Name: Client Hub
  * Plugin URI: https://github.com/gitimmhub/client-hub
  * Description: Portal do cliente integrado ao CSP para acesso a orçamentos e estudos.
- * Version: 1.5.4
+ * Version: 1.5.4.1
  * Author: Matheus Barbiéri
  * Author URI: https://github.com/gitimmhub
  * Text Domain: client-hub
@@ -25,7 +25,7 @@ $updateChecker = PucFactory::buildUpdateChecker(
 
 $updateChecker->setBranch('main');
 
-define('CLIENT_HUB_VERSION', '1.5.4');
+define('CLIENT_HUB_VERSION', '1.5.4.1');
 define('CLIENT_HUB_FILE', __FILE__);
 define('CLIENT_HUB_PATH', plugin_dir_path(__FILE__));
 define('CLIENT_HUB_URL', plugin_dir_url(__FILE__));
@@ -261,10 +261,10 @@ function client_hub_render_settings_page(): void
             }
 
             .client-hub-endpoint-field {
-                display: flex;
+                display: inline-flex;
                 align-items: stretch;
-                width: 100%;
-                max-width: 820px;
+                width: fit-content;
+                max-width: 100%;
                 overflow: hidden;
                 background: #ffffff;
                 border: 1px solid #8c8f94;
@@ -300,9 +300,9 @@ function client_hub_render_settings_page(): void
             }
 
             .client-hub-subdomain-input {
-                flex: 1;
-                min-width: 100px;
-                max-width: 220px;
+                flex: 0 0 180px;
+                width: 180px;
+                min-width: 100px
                 height: 44px !important;
                 margin: 0 !important;
                 padding: 0 14px !important;
@@ -441,6 +441,7 @@ function client_hub_render_settings_page(): void
                         value="<?= esc_attr($subdomain) ?>"
                         class="client-hub-subdomain-input"
                         placeholder="sua-empresa"
+                        maxlength="20"
                         pattern="[a-z0-9-]+"
                         autocomplete="off"
                         required
