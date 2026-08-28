@@ -40,6 +40,16 @@ function client_hub()
 
 client_hub()->init();
 
+add_action('template_redirect', function () {
+    if (is_page('estudo-viabilidade-acesso')) {
+        if (!defined('DONOTCACHEPAGE')) {
+            define('DONOTCACHEPAGE', true);
+        }
+
+        nocache_headers();
+    }
+}, 0);
+
 /*
  * Inicia a sessão utilizada pelo portal.
  */
