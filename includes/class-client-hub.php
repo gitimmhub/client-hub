@@ -52,7 +52,6 @@ class Client_Hub
             'clientHub',
             [
                 'ajax_url' => admin_url('admin-ajax.php'),
-                'nonce'    => wp_create_nonce('client_hub_login'),
             ]
         );
     }
