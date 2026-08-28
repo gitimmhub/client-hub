@@ -3,7 +3,7 @@
  * Plugin Name: Client Hub
  * Plugin URI: https://github.com/gitimmhub/client-hub
  * Description: Portal do cliente integrado ao CSP para acesso a orçamentos e estudos.
- * Version: 1.4.4
+ * Version: 1.4.5
  * Author: Matheus Barbiéri
  * Author URI: https://github.com/gitimmhub
  * Text Domain: client-hub
@@ -25,7 +25,7 @@ $updateChecker = PucFactory::buildUpdateChecker(
 
 $updateChecker->setBranch('main');
 
-define('CLIENT_HUB_VERSION', '1.4.4');
+define('CLIENT_HUB_VERSION', '1.4.5');
 define('CLIENT_HUB_FILE', __FILE__);
 define('CLIENT_HUB_PATH', plugin_dir_path(__FILE__));
 define('CLIENT_HUB_URL', plugin_dir_url(__FILE__));
@@ -189,21 +189,33 @@ function client_hub_send_login_notification(
 /**
  * Realiza o login consultando a API do CSP.
  */
+/**
+ * Realiza o login consultando a API do CSP via AJAX.
+ */
 function client_hub_login(): void
 {
-    check_ajax_referer(
-        'client_hub_login',
-        'nonce'
-    );
+    /*
+     * Valida o nonce sem encerrar com o "-1" padrão do WordPress.
+     */
+    if (!check_ajax_referer('client_hub_login', 'nonce', false)) {
+        wp_send_json([
+            'success' => false,
+            'message' => 'Sessão ou token de segurança expirado. Atualize a página e tente novamente.',
+        ], 403);
+    }
 
+    /*
+     * Garante que a sessão PHP esteja ativa.
+     */
     if (session_status() !== PHP_SESSION_ACTIVE) {
         session_start();
     }
 
+    /*
+     * Recebe e sanitiza os dados do formulário.
+     */
     $login = isset($_POST['login'])
-        ? sanitize_text_field(
-            wp_unslash($_POST['login'])
-        )
+        ? sanitize_text_field(wp_unslash($_POST['login']))
         : '';
 
     $senha = isset($_POST['senha'])
@@ -218,73 +230,55 @@ function client_hub_login(): void
     }
 
     /*
-     * Em produção, trocar pela URL pública do CSP.
+     * Endpoint de produção do CSP.
      */
     $api_url = 'https://wgb.csp.app.br/api/client-hub/login';
 
     /*
-    $host = $_SERVER['HTTP_HOST'] ?? '';
-    $host = explode(':', $host)[0];
-    if ($host === 'wordpress.local') {
-        $api_url = 'https://wgbdev.maestro.local/api/client-hub/login';
-    } else {
-        $partes = explode('.', $host);
-        $subdominio = (count($partes) > 2) ? $partes[0] : 'default';
-
-        $api_url = "https://{$subdominio}.csp.app.br/api/client-hub/login";
-    }
-    */
+     * Realiza a requisição para o CSP.
+     */
     $response = wp_remote_post($api_url, [
-        'timeout' => 20,
-
-        /*
-         * Mantenha false somente enquanto estiver usando
-         * certificado local autoassinado.
-         *
-         * Em produção, altere para true.
-         */
+        'timeout'   => 20,
         'sslverify' => true,
-
-        'body' => [
+        'body'      => [
             'login' => $login,
             'senha' => $senha,
         ],
     ]);
 
+    /*
+     * Trata erros de conexão.
+     */
     if (is_wp_error($response)) {
         wp_send_json([
             'success' => false,
-            'message' => 'Não foi possível conectar ao CSP.',
+            'message' => 'Não foi possível conectar ao servidor de autenticação.',
             'error'   => $response->get_error_message(),
         ], 502);
     }
 
-    $status_code = wp_remote_retrieve_response_code(
-        $response
-    );
+    $status_code = wp_remote_retrieve_response_code($response);
+    $body = wp_remote_retrieve_body($response);
+    $data = json_decode($body, true);
 
-    $body = wp_remote_retrieve_body(
-        $response
-    );
-
-    $data = json_decode(
-        $body,
-        true
-    );
-
+    /*
+     * Verifica se o CSP retornou um JSON válido.
+     */
     if (!is_array($data)) {
         error_log(
-            '[Client Hub] Resposta inválida recebida do CSP: '
-            . $body
+            '[Client Hub] Resposta inválida recebida do CSP: ' . $body
         );
 
         wp_send_json([
             'success'     => false,
-            'message'     => 'O CSP retornou uma resposta inválida.',
+            'message'     => 'O servidor de autenticação retornou uma resposta inválida.',
             'status_code' => $status_code,
         ], 502);
     }
 
+    /*
+     * Trata credenciais inválidas ou outros erros da API.
+     */
     if (
         $status_code < 200
         || $status_code >= 300
@@ -297,6 +291,9 @@ function client_hub_login(): void
         ], 401);
     }
 
+    /*
+     * Verifica se o orçamento foi retornado.
+     */
     if (
         empty($data['orcamento'])
         || !is_array($data['orcamento'])
@@ -308,7 +305,7 @@ function client_hub_login(): void
     }
 
     /*
-     * E-mail do responsável retornado pelo CSP.
+     * Obtém o e-mail do responsável retornado pelo CSP.
      */
     $email_responsavel = '';
 
@@ -331,33 +328,23 @@ function client_hub_login(): void
             : 0,
 
         'numero' => isset($data['orcamento']['numero'])
-            ? sanitize_text_field(
-                $data['orcamento']['numero']
-            )
+            ? sanitize_text_field($data['orcamento']['numero'])
             : '',
 
         'cliente' => isset($data['orcamento']['cliente'])
-            ? sanitize_text_field(
-                $data['orcamento']['cliente']
-            )
+            ? sanitize_text_field($data['orcamento']['cliente'])
             : '',
 
         'cpf_cnpj' => isset($data['orcamento']['cpf_cnpj'])
-            ? sanitize_text_field(
-                $data['orcamento']['cpf_cnpj']
-            )
+            ? sanitize_text_field($data['orcamento']['cpf_cnpj'])
             : '',
 
         'email' => isset($data['orcamento']['email'])
-            ? sanitize_email(
-                $data['orcamento']['email']
-            )
+            ? sanitize_email($data['orcamento']['email'])
             : '',
 
         'pdf_url' => !empty($data['orcamento']['pdf_url'])
-            ? esc_url_raw(
-                $data['orcamento']['pdf_url']
-            )
+            ? esc_url_raw($data['orcamento']['pdf_url'])
             : '',
 
         'pdf_disponivel' => !empty(
@@ -384,23 +371,15 @@ function client_hub_login(): void
                 : 0;
 
             $nome = isset($estudo['nome'])
-                ? sanitize_text_field(
-                    $estudo['nome']
-                )
+                ? sanitize_text_field($estudo['nome'])
                 : '';
 
             $view_url = !empty($estudo['view_url'])
-                ? esc_url_raw(
-                    $estudo['view_url']
-                )
+                ? esc_url_raw($estudo['view_url'])
                 : '';
 
-            $download_url = !empty(
-                $estudo['download_url']
-            )
-                ? esc_url_raw(
-                    $estudo['download_url']
-                )
+            $download_url = !empty($estudo['download_url'])
+                ? esc_url_raw($estudo['download_url'])
                 : '';
 
             if (
@@ -412,25 +391,21 @@ function client_hub_login(): void
             }
 
             $estudos[] = [
-                'id'   => $estudo_id,
+                'id' => $estudo_id,
                 'nome' => $nome,
 
-                'created_at' => isset(
-                    $estudo['created_at']
-                )
-                    ? sanitize_text_field(
-                        $estudo['created_at']
-                    )
+                'created_at' => isset($estudo['created_at'])
+                    ? sanitize_text_field($estudo['created_at'])
                     : '',
 
-                'view_url'     => $view_url,
+                'view_url' => $view_url,
                 'download_url' => $download_url,
             ];
         }
     }
 
     /*
-     * Regenera o ID da sessão após autenticar.
+     * Regenera e salva a sessão autenticada.
      */
     session_regenerate_id(true);
 
@@ -444,7 +419,7 @@ function client_hub_login(): void
     ];
 
     /*
-     * Envia aviso para o responsável em todo login bem-sucedido.
+     * Envia o aviso de login para o responsável.
      */
     $email_enviado = client_hub_send_login_notification(
         $email_responsavel,
@@ -454,15 +429,15 @@ function client_hub_login(): void
 
     session_write_close();
 
+    /*
+     * Retorna o resultado para o JavaScript.
+     */
     wp_send_json([
         'success'   => true,
         'message'   => 'Login realizado com sucesso.',
         'orcamento' => $orcamento,
         'estudos'   => $estudos,
 
-        /*
-         * Informações úteis durante os testes.
-         */
         'notificacao' => [
             'email_configurado' => $email_responsavel !== '',
             'email_enviado'     => $email_enviado,
