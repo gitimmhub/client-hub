@@ -1,96 +1,43 @@
 jQuery(function ($) {
 
+    /*
+     * LOGIN
+     */
     $('#client-hub-login').on('submit', function (event) {
         event.preventDefault();
 
         const $form = $(this);
         const $button = $form.find('button[type="submit"]');
 
-        const login = $form.find('[name="login"]').val();
-        const senha = $form.find('[name="senha"]').val();
-
-        function liberarBotao() {
-            $button
-                .prop('disabled', false)
-                .text('Acessar');
-        }
-
         $button
             .prop('disabled', true)
             .text('Acessando...');
 
-        /*
-        * Primeiro busca um nonce novo.
-        */
         $.ajax({
             url: clientHub.ajax_url,
             type: 'POST',
             dataType: 'json',
-            cache: false,
 
             data: {
-                action: 'client_hub_refresh_nonce'
+                action: 'client_hub_login',
+                nonce: clientHub.nonce,
+                login: $form.find('[name="login"]').val(),
+                senha: $form.find('[name="senha"]').val()
             },
 
-            success: function (nonceResponse) {
-                if (
-                    !nonceResponse?.success
-                    || !nonceResponse?.nonce
-                ) {
+            success: function (response) {
+                if (!response?.success) {
                     alert(
-                        nonceResponse?.message
-                        || 'Não foi possível atualizar o token de segurança.'
+                        response?.message
+                        || 'Não foi possível realizar o login.'
                     );
 
-                    liberarBotao();
                     return;
                 }
 
-                /*
-                * Depois realiza o login com o nonce novo.
-                */
-                $.ajax({
-                    url: clientHub.ajax_url,
-                    type: 'POST',
-                    dataType: 'json',
-                    cache: false,
-
-                    data: {
-                        action: 'client_hub_login',
-                        nonce: nonceResponse.nonce,
-                        login: login,
-                        senha: senha
-                    },
-
-                    success: function (response) {
-                        if (!response?.success) {
-                            alert(
-                                response?.message
-                                || 'Não foi possível realizar o login.'
-                            );
-
-                            return;
-                        }
-
-                        window.location.href =
-                            window.location.pathname
-                            + '?client_hub='
-                            + Date.now();
-                    },
-
-                    error: function (xhr) {
-                        const response = xhr.responseJSON;
-
-                        alert(
-                            response?.message
-                            || 'Erro ao conectar ao servidor.'
-                        );
-                    },
-
-                    complete: function () {
-                        liberarBotao();
-                    }
-                });
+                //window.location.reload();
+                window.location.href =
+                window.location.pathname + '?client_hub=' + Date.now();
             },
 
             error: function (xhr) {
@@ -98,10 +45,14 @@ jQuery(function ($) {
 
                 alert(
                     response?.message
-                    || 'Não foi possível atualizar o token de segurança.'
+                    || 'Erro ao conectar ao servidor.'
                 );
+            },
 
-                liberarBotao();
+            complete: function () {
+                $button
+                    .prop('disabled', false)
+                    .text('Acessar');
             }
         });
     });

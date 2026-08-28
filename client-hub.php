@@ -3,7 +3,7 @@
  * Plugin Name: Client Hub
  * Plugin URI: https://github.com/gitimmhub/client-hub
  * Description: Portal do cliente integrado ao CSP para acesso a orçamentos e estudos.
- * Version: 1.5
+ * Version: 1.5.1
  * Author: Matheus Barbiéri
  * Author URI: https://github.com/gitimmhub
  * Text Domain: client-hub
@@ -25,7 +25,7 @@ $updateChecker = PucFactory::buildUpdateChecker(
 
 $updateChecker->setBranch('main');
 
-define('CLIENT_HUB_VERSION', '1.5');
+define('CLIENT_HUB_VERSION', '1.5.1');
 define('CLIENT_HUB_FILE', __FILE__);
 define('CLIENT_HUB_PATH', plugin_dir_path(__FILE__));
 define('CLIENT_HUB_URL', plugin_dir_url(__FILE__));
@@ -39,7 +39,6 @@ function client_hub()
 }
 
 client_hub()->init();
-
 
 add_action('template_redirect', function () {
     if (is_page('estudo-viabilidade-acesso')) {
@@ -92,19 +91,6 @@ add_action(
 add_action(
     'wp_ajax_nopriv_client_hub_login',
     'client_hub_login'
-);
-
-/*
- * Gera um nonce atualizado para o login.
- */
-add_action(
-    'wp_ajax_client_hub_refresh_nonce',
-    'client_hub_refresh_nonce'
-);
-
-add_action(
-    'wp_ajax_nopriv_client_hub_refresh_nonce',
-    'client_hub_refresh_nonce'
 );
 
 /*
@@ -200,19 +186,6 @@ function client_hub_send_login_notification(
     return $enviado;
 }
 
-
-/**
- * Retorna um nonce novo para o formulário de login.
-*/
-function client_hub_refresh_nonce(): void
-{
-    nocache_headers();
-    
-    wp_send_json([
-        'success' => true,
-        'nonce'   => wp_create_nonce('client_hub_login'),
-        ]);
-}
 /**
  * Realiza o login consultando a API do CSP.
  */
@@ -224,12 +197,12 @@ function client_hub_login(): void
     /*
      * Valida o nonce sem encerrar com o "-1" padrão do WordPress.
      */
-    if (!check_ajax_referer('client_hub_login', 'nonce', false)) {
-        wp_send_json([
-            'success' => false,
-            'message' => 'Sessão ou token de segurança expirado. Atualize a página e tente novamente.',
-        ], 403);
-    }
+    //if (!check_ajax_referer('client_hub_login', 'nonce', false)) {
+    //    wp_send_json([
+    //        'success' => false,
+    //        'message' => 'Sessão ou token de segurança expirado. Atualize a página e tente novamente.',
+    //    ], 403);
+    //}
 
     /*
      * Garante que a sessão PHP esteja ativa.
