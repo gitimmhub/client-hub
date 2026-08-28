@@ -3,7 +3,7 @@
  * Plugin Name: Client Hub
  * Plugin URI: https://github.com/gitimmhub/client-hub
  * Description: Portal do cliente integrado ao CSP para acesso a orçamentos e estudos.
- * Version: 1.5.1
+ * Version: 1.5.2
  * Author: Matheus Barbiéri
  * Author URI: https://github.com/gitimmhub
  * Text Domain: client-hub
@@ -25,7 +25,7 @@ $updateChecker = PucFactory::buildUpdateChecker(
 
 $updateChecker->setBranch('main');
 
-define('CLIENT_HUB_VERSION', '1.5.1');
+define('CLIENT_HUB_VERSION', '1.5.2');
 define('CLIENT_HUB_FILE', __FILE__);
 define('CLIENT_HUB_PATH', plugin_dir_path(__FILE__));
 define('CLIENT_HUB_URL', plugin_dir_url(__FILE__));
@@ -450,9 +450,7 @@ function client_hub_login(): void
  */
 function client_hub_handle_logout(): void
 {
-    check_admin_referer(
-        'client_hub_logout'
-    );
+    check_admin_referer('client_hub_logout');
 
     if (session_status() !== PHP_SESSION_ACTIVE) {
         session_start();
@@ -465,20 +463,33 @@ function client_hub_handle_logout(): void
 
     nocache_headers();
 
+    /*
+     * Recupera automaticamente a página de onde o logout veio.
+     */
     $redirect_url = wp_get_referer();
 
     if (!$redirect_url) {
         $redirect_url = home_url('/');
     }
 
-    $redirect_url = remove_query_arg(
-        [
-            'client_hub_logout',
-            '_wpnonce',
-        ],
+    /*
+     * Remove parâmetros antigos utilizados para quebrar o cache.
+     */
+    $redirect_url = remove_query_arg([
+        'client_hub',
+        'client_hub_logout',
+        '_wpnonce',
+    ], $redirect_url);
+
+    /*
+     * Adiciona um parâmetro novo para não carregar o dashboard do cache.
+     */
+    $redirect_url = add_query_arg(
+        'client_hub_logout',
+        time(),
         $redirect_url
     );
 
-    wp_safe_redirect($redirect_url);
+    wp_safe_redirect($redirect_url, 302);
     exit;
 }
