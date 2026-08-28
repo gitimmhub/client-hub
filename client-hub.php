@@ -3,7 +3,7 @@
  * Plugin Name: Client Hub
  * Plugin URI: https://github.com/gitimmhub/client-hub
  * Description: Portal do cliente integrado ao CSP para acesso a orçamentos e estudos.
- * Version: 1.5.3
+ * Version: 1.5.4
  * Author: Matheus Barbiéri
  * Author URI: https://github.com/gitimmhub
  * Text Domain: client-hub
@@ -25,7 +25,7 @@ $updateChecker = PucFactory::buildUpdateChecker(
 
 $updateChecker->setBranch('main');
 
-define('CLIENT_HUB_VERSION', '1.5.3');
+define('CLIENT_HUB_VERSION', '1.5.4');
 define('CLIENT_HUB_FILE', __FILE__);
 define('CLIENT_HUB_PATH', plugin_dir_path(__FILE__));
 define('CLIENT_HUB_URL', plugin_dir_url(__FILE__));
@@ -49,6 +49,30 @@ add_action('template_redirect', function () {
         nocache_headers();
     }
 }, 0);
+
+/*
+ * Adiciona o link Configurações na lista de plugins.
+ */
+add_filter(
+    'plugin_action_links_' . plugin_basename(CLIENT_HUB_FILE),
+    'client_hub_plugin_action_links'
+);
+
+function client_hub_plugin_action_links(array $links): array
+{
+    $settings_url = admin_url(
+        'options-general.php?page=client-hub-settings'
+    );
+
+    $settings_link = sprintf(
+        '<a href="%s">Configurações</a>',
+        esc_url($settings_url)
+    );
+
+    array_unshift($links, $settings_link);
+
+    return $links;
+}
 
 /*
  * Tela de configurações do Client Hub.
@@ -164,60 +188,347 @@ function client_hub_render_settings_page(): void
         'client_hub_subdomain',
         ''
     );
+
+    $endpoint = $subdomain !== ''
+        ? sprintf(
+            'https://%s.csp.app.br/api/client-hub/login',
+            $subdomain
+        )
+        : '';
+
     ?>
 
-    <div class="wrap">
+    <div class="wrap client-hub-settings-wrap">
 
-        <h1>Configurações do Client Hub</h1>
+        <style>
+            .client-hub-settings-wrap {
+                max-width: 960px;
+                margin-top: 30px;
+            }
+
+            .client-hub-settings-header {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                margin-bottom: 24px;
+            }
+
+            .client-hub-settings-icon {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 52px;
+                height: 52px;
+                color: #ffffff;
+                background: linear-gradient(135deg, #2271b1, #135e96);
+                border-radius: 12px;
+                box-shadow: 0 6px 16px rgba(34, 113, 177, 0.25);
+            }
+
+            .client-hub-settings-icon .dashicons {
+                width: 28px;
+                height: 28px;
+                font-size: 28px;
+            }
+
+            .client-hub-settings-title {
+                margin: 0;
+                color: #1d2327;
+                font-size: 26px;
+                line-height: 1.2;
+            }
+
+            .client-hub-settings-description {
+                margin: 5px 0 0;
+                color: #646970;
+                font-size: 14px;
+            }
+
+            .client-hub-settings-card {
+                padding: 28px;
+                background: #ffffff;
+                border: 1px solid #dcdcde;
+                border-radius: 12px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+            }
+
+            .client-hub-field-label {
+                display: block;
+                margin-bottom: 9px;
+                color: #1d2327;
+                font-size: 14px;
+                font-weight: 600;
+            }
+
+            .client-hub-endpoint-field {
+                display: flex;
+                align-items: stretch;
+                width: 100%;
+                max-width: 820px;
+                overflow: hidden;
+                background: #ffffff;
+                border: 1px solid #8c8f94;
+                border-radius: 7px;
+                transition:
+                    border-color 0.2s,
+                    box-shadow 0.2s;
+            }
+
+            .client-hub-endpoint-field:focus-within {
+                border-color: #2271b1;
+                box-shadow: 0 0 0 1px #2271b1;
+            }
+
+            .client-hub-endpoint-prefix,
+            .client-hub-endpoint-suffix {
+                display: flex;
+                align-items: center;
+                padding: 0 13px;
+                color: #50575e;
+                background: #f6f7f7;
+                font-family: Consolas, Monaco, monospace;
+                font-size: 13px;
+                white-space: nowrap;
+            }
+
+            .client-hub-endpoint-prefix {
+                border-right: 1px solid #dcdcde;
+            }
+
+            .client-hub-endpoint-suffix {
+                border-left: 1px solid #dcdcde;
+            }
+
+            .client-hub-subdomain-input {
+                flex: 1;
+                min-width: 100px;
+                max-width: 220px;
+                height: 44px !important;
+                margin: 0 !important;
+                padding: 0 14px !important;
+                border: 0 !important;
+                border-radius: 0 !important;
+                outline: none !important;
+                box-shadow: none !important;
+                font-family: Consolas, Monaco, monospace;
+                font-size: 14px;
+                font-weight: 600;
+            }
+
+            .client-hub-field-help {
+                margin: 10px 0 0;
+                color: #646970;
+                font-size: 13px;
+            }
+
+            .client-hub-endpoint-preview {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-top: 18px;
+                padding: 12px 14px;
+                color: #1d2327;
+                background: #f0f6fc;
+                border-left: 4px solid #2271b1;
+                border-radius: 4px;
+            }
+
+            .client-hub-endpoint-preview code {
+                background: transparent;
+                font-size: 13px;
+            }
+
+            .client-hub-settings-actions {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                margin-top: 25px;
+                padding-top: 22px;
+                border-top: 1px solid #dcdcde;
+            }
+
+            .client-hub-save-button.button.button-primary {
+                min-height: 42px;
+                padding: 0 22px;
+                color: #ffffff;
+                background: #2271b1;
+                border-color: #2271b1;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 600;
+            }
+
+            .client-hub-save-button.button.button-primary:hover {
+                color: #ffffff;
+                background: #135e96;
+                border-color: #135e96;
+            }
+
+            .client-hub-configured {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                color: #008a20;
+                font-size: 13px;
+                font-weight: 600;
+            }
+
+            @media (max-width: 782px) {
+                .client-hub-endpoint-field {
+                    flex-wrap: wrap;
+                }
+
+                .client-hub-endpoint-prefix,
+                .client-hub-endpoint-suffix {
+                    min-height: 42px;
+                }
+
+                .client-hub-subdomain-input {
+                    max-width: none;
+                }
+
+                .client-hub-endpoint-suffix {
+                    width: 100%;
+                    border-top: 1px solid #dcdcde;
+                    border-left: 0;
+                }
+            }
+        </style>
+
+        <div class="client-hub-settings-header">
+
+            <div class="client-hub-settings-icon">
+                <span class="dashicons dashicons-admin-links"></span>
+            </div>
+
+            <div>
+                <h1 class="client-hub-settings-title">
+                    Client Hub
+                </h1>
+
+                <p class="client-hub-settings-description">
+                    Configure a integração com o ambiente CSP da sua empresa.
+                </p>
+            </div>
+
+        </div>
 
         <?php settings_errors(); ?>
 
-        <form method="post" action="options.php">
+        <div class="client-hub-settings-card">
 
-            <?php settings_fields('client_hub_settings'); ?>
+            <form method="post" action="options.php">
 
-            <table class="form-table">
+                <?php settings_fields('client_hub_settings'); ?>
 
-                <tr>
-                    <th scope="row">
-                        <label for="client-hub-subdomain">
-                            Subdomínio do CSP
-                        </label>
-                    </th>
+                <label
+                    for="client-hub-subdomain"
+                    class="client-hub-field-label"
+                >
+                    Endereço da API
+                </label>
 
-                    <td>
-                        <input
-                            type="text"
-                            id="client-hub-subdomain"
-                            name="client_hub_subdomain"
-                            value="<?= esc_attr($subdomain) ?>"
-                            class="regular-text"
-                            placeholder="dominio"
-                            required
-                        >
+                <div class="client-hub-endpoint-field">
 
-                        <p class="description">
-                            Informe somente a parte variável da URL.
-                        </p>
+                    <span class="client-hub-endpoint-prefix">
+                        https://
+                    </span>
 
-                        <p>
-                            URL resultante:
-                            <code>
-                                https://<?= esc_html(
-                                    $subdomain !== ''
-                                        ? $subdomain
-                                        : 'XXX'
-                                ) ?>.csp.app.br/api/client-hub/login
-                            </code>
-                        </p>
-                    </td>
-                </tr>
+                    <input
+                        type="text"
+                        id="client-hub-subdomain"
+                        name="client_hub_subdomain"
+                        value="<?= esc_attr($subdomain) ?>"
+                        class="client-hub-subdomain-input"
+                        placeholder="sua-empresa"
+                        pattern="[a-z0-9-]+"
+                        autocomplete="off"
+                        required
+                    >
 
-            </table>
+                    <span class="client-hub-endpoint-suffix">
+                        .csp.app.br/api/client-hub/login
+                    </span>
 
-            <?php submit_button('Salvar configurações'); ?>
+                </div>
 
-        </form>
+                <p class="client-hub-field-help">
+                    Informe somente o subdomínio da empresa, sem HTTPS ou barras.
+                </p>
+
+                <div class="client-hub-endpoint-preview">
+
+                    <span class="dashicons dashicons-admin-site-alt3"></span>
+
+                    <span>
+                        Endpoint:
+                        <code id="client-hub-endpoint-preview">
+                            <?= esc_html(
+                                $endpoint !== ''
+                                    ? $endpoint
+                                    : 'Aguardando configuração'
+                            ) ?>
+                        </code>
+                    </span>
+
+                </div>
+
+                <div class="client-hub-settings-actions">
+
+                    <?php
+                    submit_button(
+                        'Salvar configurações',
+                        'primary client-hub-save-button',
+                        'submit',
+                        false
+                    );
+                    ?>
+
+                    <?php if ($subdomain !== ''): ?>
+
+                        <span class="client-hub-configured">
+                            <span class="dashicons dashicons-yes-alt"></span>
+                            API configurada
+                        </span>
+
+                    <?php endif; ?>
+
+                </div>
+
+            </form>
+
+        </div>
+
+        <script>
+            document.addEventListener(
+                'DOMContentLoaded',
+                function () {
+                    const input = document.getElementById(
+                        'client-hub-subdomain'
+                    );
+
+                    const preview = document.getElementById(
+                        'client-hub-endpoint-preview'
+                    );
+
+                    if (!input || !preview) {
+                        return;
+                    }
+
+                    input.addEventListener('input', function () {
+                        this.value = this.value
+                            .toLowerCase()
+                            .replace(/[^a-z0-9-]/g, '');
+
+                        preview.textContent = this.value
+                            ? 'https://'
+                                + this.value
+                                + '.csp.app.br/api/client-hub/login'
+                            : 'Aguardando configuração';
+                    });
+                }
+            );
+        </script>
 
     </div>
 
