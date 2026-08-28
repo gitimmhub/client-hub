@@ -3,7 +3,7 @@
  * Plugin Name: Client Hub
  * Plugin URI: https://github.com/gitimmhub/client-hub
  * Description: Portal do cliente integrado ao CSP para acesso a orçamentos e estudos.
- * Version: 1.5.2
+ * Version: 1.5.3
  * Author: Matheus Barbiéri
  * Author URI: https://github.com/gitimmhub
  * Text Domain: client-hub
@@ -25,7 +25,7 @@ $updateChecker = PucFactory::buildUpdateChecker(
 
 $updateChecker->setBranch('main');
 
-define('CLIENT_HUB_VERSION', '1.5.2');
+define('CLIENT_HUB_VERSION', '1.5.3');
 define('CLIENT_HUB_FILE', __FILE__);
 define('CLIENT_HUB_PATH', plugin_dir_path(__FILE__));
 define('CLIENT_HUB_URL', plugin_dir_url(__FILE__));
@@ -49,6 +49,180 @@ add_action('template_redirect', function () {
         nocache_headers();
     }
 }, 0);
+
+/*
+ * Tela de configurações do Client Hub.
+ */
+add_action(
+    'admin_menu',
+    'client_hub_add_settings_page'
+);
+
+add_action(
+    'admin_init',
+    'client_hub_register_settings'
+);
+
+/**
+ * Adiciona a página em Configurações → Client Hub.
+ */
+function client_hub_add_settings_page(): void
+{
+    add_options_page(
+        'Configurações do Client Hub',
+        'Client Hub',
+        'manage_options',
+        'client-hub-settings',
+        'client_hub_render_settings_page'
+    );
+}
+
+/**
+ * Registra as configurações do plugin.
+ */
+function client_hub_register_settings(): void
+{
+    register_setting(
+        'client_hub_settings',
+        'client_hub_subdomain',
+        [
+            'type'              => 'string',
+            'sanitize_callback' => 'client_hub_sanitize_subdomain',
+            'default'           => '',
+        ]
+    );
+}
+
+/**
+ * Valida o subdomínio informado pelo administrador.
+ */
+function client_hub_sanitize_subdomain($value): string
+{
+    $value = strtolower(
+        trim((string) $value)
+    );
+
+    $subdomain_pattern =
+        '/\A[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\z/';
+
+    if (
+        $value === ''
+        || !preg_match($subdomain_pattern, $value)
+    ) {
+        add_settings_error(
+            'client_hub_settings',
+            'client_hub_invalid_subdomain',
+            'Informe somente o subdomínio. Exemplo: meu dominio',
+            'error'
+        );
+
+        return (string) get_option(
+            'client_hub_subdomain',
+            ''
+        );
+    }
+
+    return $value;
+}
+
+/**
+ * Retorna a URL configurada para a API.
+ */
+function client_hub_get_api_url(): string
+{
+    $subdomain = (string) get_option(
+        'client_hub_subdomain',
+        ''
+    );
+
+    $subdomain_pattern =
+        '/\A[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\z/';
+
+    if (
+        $subdomain === ''
+        || !preg_match($subdomain_pattern, $subdomain)
+    ) {
+        return '';
+    }
+
+    return sprintf(
+        'https://%s.csp.app.br/api/client-hub/login',
+        $subdomain
+    );
+}
+
+/**
+ * Exibe a página de configurações.
+ */
+function client_hub_render_settings_page(): void
+{
+    if (!current_user_can('manage_options')) {
+        return;
+    }
+
+    $subdomain = (string) get_option(
+        'client_hub_subdomain',
+        ''
+    );
+    ?>
+
+    <div class="wrap">
+
+        <h1>Configurações do Client Hub</h1>
+
+        <?php settings_errors(); ?>
+
+        <form method="post" action="options.php">
+
+            <?php settings_fields('client_hub_settings'); ?>
+
+            <table class="form-table">
+
+                <tr>
+                    <th scope="row">
+                        <label for="client-hub-subdomain">
+                            Subdomínio do CSP
+                        </label>
+                    </th>
+
+                    <td>
+                        <input
+                            type="text"
+                            id="client-hub-subdomain"
+                            name="client_hub_subdomain"
+                            value="<?= esc_attr($subdomain) ?>"
+                            class="regular-text"
+                            placeholder="dominio"
+                            required
+                        >
+
+                        <p class="description">
+                            Informe somente a parte variável da URL.
+                        </p>
+
+                        <p>
+                            URL resultante:
+                            <code>
+                                https://<?= esc_html(
+                                    $subdomain !== ''
+                                        ? $subdomain
+                                        : 'XXX'
+                                ) ?>.csp.app.br/api/client-hub/login
+                            </code>
+                        </p>
+                    </td>
+                </tr>
+
+            </table>
+
+            <?php submit_button('Salvar configurações'); ?>
+
+        </form>
+
+    </div>
+
+    <?php
+}
 
 /*
  * Inicia a sessão utilizada pelo portal.
@@ -153,7 +327,7 @@ function client_hub_send_login_notification(
     $mensagem = implode("\n", [
         'Olá!',
         '',
-        'Um login foi realizado na Central do Cliente da WGB Engenharia.',
+        'Um login foi realizado na Central do Cliente.',
         '',
         'Cliente: ' . $cliente,
         'Orçamento: ' . $numero_orcamento,
@@ -232,7 +406,14 @@ function client_hub_login(): void
     /*
      * Endpoint de produção do CSP.
      */
-    $api_url = 'https://wgb.csp.app.br/api/client-hub/login';
+    $api_url = client_hub_get_api_url();
+
+    if ($api_url === '') {
+        wp_send_json([
+            'success' => false,
+            'message' => 'O Client Hub ainda não foi configurado pelo administrador.',
+        ], 503);
+    }
 
     /*
      * Realiza a requisição para o CSP.
